@@ -8,6 +8,109 @@ with PPO, and measures what they learn.
 The findings are in [REPORT.md](REPORT.md); the archived numbers behind them are in `results/`. For a live
 demo, see [DEMO.md](DEMO.md).
 
+## Contents
+
+- [Architecture](#architecture)
+- [Learning and simulation flows](#learning-and-simulation-flows)
+- [Install](#install)
+- [Run everything, live](#run-everything-live)
+- [The Arena Lab](#the-arena-lab-on-its-own)
+- [Experiments](#the-five-things-to-run)
+- [Project map](#what-is-where)
+- [Results](#results-at-a-glance)
+- [Run artifacts](#reading-a-run)
+
+## Architecture
+
+The project has a shared negotiation environment and two ways to improve policies: gradient-based PPO and
+evolution in a population. The dashboard observes saved run data; the Arena Lab owns a separate, interactive
+set of agents.
+
+```mermaid
+flowchart LR
+  subgraph Learning["Training and simulation"]
+    PPOEntry["ippo.py / self_play.py"] --> PPO["ippo.py: rollout collection and PPO"]
+    TrainEntry["train.py"] --> Economy["economy.py: population rules"]
+    PPO --> Env["negotiation_env.py"]
+    PPO --> Networks["networks.py: MLP or GRU"]
+    Economy --> Env
+    Economy --> Networks
+    PPO --> PPOFiles["PPO run files"]
+    TrainEntry --> EconomyFiles["Population run files"]
+  end
+
+  subgraph Viewing["Read-only run viewer"]
+    Dashboard["dashboard.py"] --> DashboardPage["dashboard.html + dashboard.js"]
+    Dashboard --> RunData["events.jsonl + live.jsonl"]
+    DashboardPage --> Browser["Browser dashboard"]
+  end
+
+  subgraph Arena["Interactive Arena Lab"]
+    Play["play.py: session and API"] --> Lab["Lab: agents, scenario, optional live PPO"]
+    Lab --> Env
+    Lab --> Networks
+    Lab -. optional .-> Language["language.py: local language model"]
+    Play --> ArenaPage["play.html + play.js"]
+    ArenaPage --> ArenaBrowser["Browser controls"]
+  end
+
+  EconomyFiles --> RunData
+```
+
+`demo.py` starts `train.py`, `dashboard.py`, and (unless disabled) `play.py` as separate processes. The
+dashboard can only read the population run's files. The Arena Lab does not read or modify that run.
+
+## Learning and simulation flows
+
+### PPO negotiation
+
+`ippo.py` owns the shared actor-critic, rollout collector, and PPO update used by direct training and
+self-play. The environment supplies the observations and legal-action flags; the selected protocol resolves
+offers and produces the episode outcome and reward.
+
+```mermaid
+sequenceDiagram
+  participant Env as negotiation_env.py
+  participant Policy as Policy and networks.py
+  participant Rollout as Rollout collector
+  participant PPO as PPO update
+  participant Run as PPO run files
+  loop Each negotiation
+    Env->>Policy: observation and can_* flags
+    Policy->>Env: response, offer, optional message
+    Env->>Env: protocol resolves step
+    Env-->>Rollout: transition and reward
+  end
+  Rollout->>PPO: completed rollout
+  PPO->>Policy: updated actor-critic weights
+  PPO-->>Run: metrics, episodes, checkpoint, evaluation
+```
+
+The MLP uses the current observation. The GRU also carries hidden state across that agent's decisions. Under
+self-play, `self_play.py` supplies opponents from a pool of past checkpoints to the same rollout machinery.
+
+### Population economy
+
+The population path is evolutionary, not PPO training: it negotiates compute trades, earns task rewards,
+applies costs, and creates mutated offspring. `train.py` records each generation and saves checkpoints.
+
+```mermaid
+flowchart LR
+  Compute["Allocate compute"] --> Pair["Pair agents"]
+  Pair --> Trade["Negotiate compute trade"]
+  Trade --> Work["Attempt task and earn tokens"]
+  Work --> Upkeep["Apply decay and survival cost"]
+  Upkeep --> Selection{"Alive and reproduction threshold?"}
+  Selection -->|dies| Next["Next round or generation"]
+  Selection -->|survives| Next
+  Selection -->|reproduces| Child["Copy policy with Gaussian mutation"]
+  Child --> Next
+  Next --> Logs["CSV metrics, JSONL events, plots, checkpoints"]
+```
+
+The current task is `RandomScoreTask`, a replaceable stub. A `Task` implementation can provide expected
+score and an attempt result without changing the economy's negotiation or survival rules.
+
 ## Install
 
 ```bash
@@ -69,10 +172,10 @@ cost of delay, the protocol and whether the clock is visible, then:
   log-probabilities, and the page shows those scores under each sentence. The number, not the sentence, is
   what the environment receives.
 
-A language-model turn takes 3–5 seconds on a laptop CPU; the page shows it thinking. `--language-model
-<hf id>` swaps in a bigger model and `--language-threads N` sets its cores. The page reports the checkpoint's
-SHA-256, and nothing on it is precomputed. The Lab writes no files, and it is separate from `dashboard.py`,
-which stays read-only.
+A language-model turn takes 3–5 seconds on a laptop CPU; the page shows it thinking.
+`--language-model <hf id>` swaps in a bigger model and `--language-threads N` sets its cores. The page reports
+the checkpoint's SHA-256, and nothing on it is precomputed. The Lab writes no files, and it is separate from
+`dashboard.py`, which stays read-only.
 
 ## The five things to run
 
@@ -100,7 +203,7 @@ Useful flags: `--protocol sealed_bid`, `--message-vocab 5` (cheap talk), `--poli
 | `train.py` | The unattended entry point: JSONL event log, checkpoints, plots |
 | `livelog.py` | The move-by-move stream the dashboard animates |
 | `dashboard.py` + `.html` + `.js` | Read-only live dashboard: arena, network panel, charts |
-| `demo.py` | Starts a run and its dashboard together |
+| `demo.py` | Starts the population run, its dashboard and the Arena Lab together |
 | `play.py` + `.html` + `.js` | The Arena Lab: play, watch, train on stage, debate in English |
 | `language.py` | The optional English seat: a local instruct model whose argument becomes a real offer |
 | `baselines.py`, `tournament.py` | Scripted negotiators and a round robin |
@@ -125,8 +228,6 @@ Useful flags: `--protocol sealed_bid`, `--message-vocab 5` (cheap talk), `--poli
 
 Each run writes to `runs/<run_id>/`: `metrics.csv` (per update), `episodes.csv` (per episode), `agents.pt`
 (weights and config), `eval.json`, `plots.png`. The economy also writes `events.jsonl` (one JSON line per
-generation, including a full sampled negotiation) and `checkpoints/` every 25 generations. The dashboard only
-ever reads those files; it cannot write to a run or influence training.
-#   U l t r e x  
- #   U l t r e x  
- 
+generation, including a full sampled negotiation), `live.jsonl` (the move-by-move stream from `livelog.py`)
+and `checkpoints/` every 25 generations. The dashboard only ever reads those files; it cannot write to a run or
+influence training.
