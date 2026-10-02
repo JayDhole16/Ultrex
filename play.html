@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Arena Lab</title>
+<style>
+  :root {
+    color-scheme: light;
+    --page: #f9f9f7; --surface: #fcfcfb; --sunken: #f2f1ec;
+    --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
+    --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,.1); --wash: rgba(11,11,11,.04);
+    --series: #2a78d6; --series-b: #eb6834; --positive: #2a78d6; --negative: #e34948;
+    --good: #0ca30c; --warning: #fab219; --critical: #d03b3b;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif; font-size: 14px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --page: #0d0d0d; --surface: #1a1a19; --sunken: #121211;
+      --ink: #fff; --ink-2: #c3c2b7; --grid: #2c2c2a; --axis: #383835;
+      --border: rgba(255,255,255,.1); --wash: rgba(255,255,255,.05);
+      --series: #3987e5; --series-b: #d95926; --positive: #3987e5; --negative: #e66767;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--ink); }
+  [hidden] { display: none !important; }
+  .muted { color: var(--muted); } .secondary { color: var(--ink-2); }
+  h1 { font-size: 18px; font-weight: 600; margin: 0; }
+  h2 { font-size: 14px; font-weight: 600; margin: 0 0 8px; }
+  .caption { color: var(--muted); font-size: 12px; margin: 0 0 8px; }
+  header.top { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: baseline; padding: 14px 20px 10px; border-bottom: 1px solid var(--border); }
+  code { font-size: 12px; color: var(--ink-2); }
+
+  main { display: grid; grid-template-columns: minmax(280px, 1fr) minmax(0, 1.9fr) minmax(280px, 1fr); gap: 12px; padding: 12px 20px 24px; align-items: start; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+  .card + .card { margin-top: 12px; }
+  @media (max-width: 1200px) { main { grid-template-columns: minmax(0, 1fr); } }
+
+  label.row { display: grid; grid-template-columns: 8.5em 1fr auto; gap: 8px; align-items: center; margin-bottom: 8px; font-size: 13px; color: var(--ink-2); }
+  label.row .value { font-variant-numeric: tabular-nums; color: var(--ink); min-width: 3.5em; text-align: right; }
+  button, input, select { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; }
+  button { cursor: pointer; }
+  button:hover:not(:disabled) { background: var(--wash); }
+  button:disabled { color: var(--muted); cursor: default; }
+  button.primary { background: var(--series); border-color: var(--series); color: #fff; font-weight: 600; }
+  button.primary:hover:not(:disabled) { filter: brightness(1.08); }
+  button.danger { border-color: var(--critical); color: var(--critical); }
+  input[type="range"] { width: 100%; padding: 0; accent-color: var(--series); }
+  .buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+
+  .seats { display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; align-items: center; }
+  .seat { background: var(--sunken); border-radius: 10px; padding: 12px; text-align: center; }
+  .seat.you { outline: 2px solid var(--series); }
+  .seat.acting { outline: 2px solid var(--series-b); }
+  .seat .who { font-weight: 600; }
+  .seat .stat { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .versus { color: var(--muted); font-size: 12px; }
+
+  .table-card { margin-top: 12px; background: var(--sunken); border-radius: 10px; padding: 12px; text-align: center; }
+  .table-card .split { font-size: 26px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .split-bar { display: flex; height: 12px; gap: 2px; margin-top: 8px; }
+  .split-bar .keep { background: var(--series); border-radius: 3px 0 0 3px; }
+  .split-bar .give { background: var(--series-b); border-radius: 0 3px 3px 0; }
+
+  .moves { max-height: 220px; overflow: auto; margin-top: 12px; }
+  .move { display: grid; grid-template-columns: 4.5em 1fr; gap: 8px; padding: 4px 0; border-top: 1px solid var(--grid); font-size: 13px; }
+  .move .when { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .move.you .what { color: var(--series); font-weight: 600; }
+  .weighed { display: flex; align-items: flex-end; gap: 3px; margin-top: 4px; font-size: 10px; }
+  .weighed .label { color: var(--muted); margin-right: 4px; align-self: center; }
+  .weighed .opt { display: flex; flex-direction: column; justify-content: flex-end; align-items: stretch; height: 30px; min-width: 22px; gap: 1px; }
+  .weighed .bar { background: var(--series); opacity: .45; border-radius: 2px 2px 0 0; min-height: 2px; }
+  .weighed .opt.chosen .bar { background: var(--series-b); opacity: 1; }
+  .weighed .name { color: var(--muted); text-align: center; font-variant-numeric: tabular-nums; }
+  .weighed .opt.chosen .name { color: var(--ink); font-weight: 600; }
+  .outcome { margin-top: 12px; padding: 10px 12px; border-radius: 8px; background: var(--wash); }
+  .outcome .headline { font-weight: 600; }
+  .outcome.deal .headline { color: var(--good); }
+  .outcome.nodeal .headline { color: var(--critical); }
+  pre { margin: 8px 0 0; padding: 8px; background: var(--wash); border-radius: 6px; font-size: 12px; overflow-x: auto; }
+
+  .net-row { margin-bottom: 10px; }
+  .net-row .head { display: flex; justify-content: space-between; align-items: baseline; color: var(--ink-2); font-size: 12px; margin-bottom: 3px; }
+  .net-row .head .value { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .cells { display: grid; grid-template-columns: repeat(16, 1fr); gap: 2px; }
+  .cell { aspect-ratio: 1; border-radius: 2px; background: var(--wash); }
+  .inputs { display: grid; grid-template-columns: auto 1fr auto; gap: 2px 8px; align-items: center; font-size: 11px; }
+  .inputs .name { color: var(--ink-2); }
+  .inputs .track { height: 8px; background: var(--wash); border-radius: 2px; overflow: hidden; }
+  .inputs .fill { height: 100%; background: var(--series); }
+  .inputs .num { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .prob-track { height: 12px; background: var(--wash); border-radius: 3px; overflow: hidden; }
+  .prob-fill { height: 100%; background: var(--series); transition: width 200ms; }
+  .tokens { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; align-items: end; height: 44px; }
+  .token { display: flex; flex-direction: column; justify-content: flex-end; height: 100%; gap: 2px; }
+  .token .bar { background: var(--series); border-radius: 2px 2px 0 0; min-height: 1px; }
+  .token.chosen .bar { background: var(--series-b); }
+  .token .name { color: var(--muted); font-size: 10px; text-align: center; }
+  .scale { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 11px; margin-bottom: 10px; }
+  .scale .ramp { flex: 1; height: 8px; border-radius: 2px; background: linear-gradient(90deg, var(--negative), var(--wash), var(--positive)); }
+  svg.beta, svg.curve { width: 100%; display: block; }
+  svg .area { fill: var(--series); opacity: .12; }
+  svg .line { fill: none; stroke: var(--series); stroke-width: 2; stroke-linejoin: round; }
+  svg .axis { stroke: var(--axis); stroke-width: 1; }
+  svg .grid { stroke: var(--grid); stroke-width: 1; }
+  svg .pick { stroke: var(--ink-2); stroke-width: 1; }
+  svg text { fill: var(--muted); font-size: 10px; }
+  .status { display: inline-flex; gap: 6px; align-items: baseline; color: var(--ink-2); }
+  .status .dot { color: var(--muted); font-size: 12px; }
+  .status[data-state="your-turn"] .dot { color: var(--series); }
+  .status[data-state="training"] .dot { color: var(--good); }
+  .status[data-state="done"] .dot { color: var(--muted); }
+  .status[data-state="thinking"] .dot { color: var(--series-b); animation: breathe 1.2s ease-in-out infinite; }
+  .move.thinking .what { color: var(--ink-2); font-style: italic; }
+  .move.thinking .ellipsis::after { content: "…"; animation: breathe 1.2s ease-in-out infinite; }
+  @keyframes breathe { 50% { opacity: .25; } }
+  @media (prefers-reduced-motion: reduce) {
+    .status[data-state="thinking"] .dot, .move.thinking .ellipsis::after { animation: none; }
+  }
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>Arena Lab</h1>
+  <span id="status" class="status" data-state="idle"><span class="dot">●</span><span id="status-text">Loading</span></span>
+  <code id="provenance"></code>
+</header>
+
+<main>
+  <section>
+    <div class="card">
+      <h2>Set the stakes</h2>
+      <p class="caption">Applies to the next negotiation you start.</p>
+      <label class="row">Seat A<select id="seat_a"></select><span></span></label>
+      <label class="row">Seat B<select id="seat_b"></select><span></span></label>
+      <label class="row">A needs tokens<input id="need_a" type="range" min="0.5" max="2" step="0.05"><span class="value" id="need_a_v"></span></label>
+      <label class="row">B needs tokens<input id="need_b" type="range" min="0.5" max="2" step="0.05"><span class="value" id="need_b_v"></span></label>
+      <label class="row">Deadline<input id="max_rounds" type="range" min="1" max="20" step="1"><span class="value" id="max_rounds_v"></span></label>
+      <label class="row">Delay costs<input id="discount" type="range" min="0.5" max="1" step="0.01"><span class="value" id="discount_v"></span></label>
+      <label class="row">Protocol<select id="protocol"><option value="alternating_offers">alternating offers</option><option value="sealed_bid">sealed bids</option></select><span></span></label>
+      <label class="row">Topic<input id="topic" type="text" placeholder="what they argue about"><span></span></label>
+      <label class="row">Hide the clock<input id="observe_round" type="checkbox"><span></span></label>
+      <div class="buttons"><button id="start" class="primary" type="button">Start negotiation</button></div>
+    </div>
+
+    <div class="card">
+      <h2>Learning live</h2>
+      <p class="caption">PPO running here and now: both agents against each other (self-play), or one against the
+        opponent you pick. Every update hands new weights to the agent across the table, even mid-negotiation.</p>
+      <label class="row">Opponent<select id="train_opponent"></select><span></span></label>
+      <label class="row">Updates<input id="train_updates" type="range" min="5" max="85" step="5"><span class="value" id="train_updates_v"></span></label>
+      <div class="buttons">
+        <button id="train_start" class="primary" type="button">Train</button>
+        <button id="train_stop" type="button">Stop</button>
+        <button id="fresh" type="button">Start from scratch</button>
+        <button id="reload" class="danger" type="button">Reset to checkpoint</button>
+      </div>
+      <p class="caption" id="train_status" style="margin-top:10px"></p>
+      <div class="caption">Reward per negotiation</div>
+      <svg id="train_reward" class="curve" viewBox="0 0 260 90" height="90"></svg>
+      <div class="caption" style="margin-top:6px">Would it take a lowball? Chance it accepts 20 of 100</div>
+      <svg id="train_lowball" class="curve" viewBox="0 0 260 80" height="80"></svg>
+      <div class="caption" style="margin-top:6px">What it opens with, and the least it will accept</div>
+      <svg id="train_curve" class="curve" viewBox="0 0 260 100" height="100"></svg>
+    </div>
+  </section>
+
+  <section>
+    <div class="card">
+      <h2>The negotiation</h2>
+      <p class="caption" id="stage_caption">Set the stakes and press start. You can take a seat yourself.</p>
+      <div class="seats">
+        <div class="seat" id="seat_a_box"><div class="who" id="seat_a_name">—</div><div class="stat" id="seat_a_stat"></div></div>
+        <div class="versus">vs</div>
+        <div class="seat" id="seat_b_box"><div class="who" id="seat_b_name">—</div><div class="stat" id="seat_b_stat"></div></div>
+      </div>
+
+      <div class="table-card" id="table" hidden>
+        <div class="caption" id="table_who"></div>
+        <div class="split" id="table_split"></div>
+        <div class="split-bar"><div class="keep" id="table_keep"></div><div class="give" id="table_give"></div></div>
+      </div>
+
+      <div id="your_move" hidden>
+        <h2 style="margin-top:14px">Your move</h2>
+        <p class="caption" id="move_context"></p>
+        <div id="offer_controls">
+          <label class="row">You keep<input id="share" type="range" min="1" max="99" step="1"><span class="value" id="share_v"></span></label>
+          <div class="buttons">
+            <button id="send_offer" class="primary" type="button">Send offer</button>
+            <button id="accept" type="button">Accept</button>
+            <button id="reject" type="button">Walk away</button>
+          </div>
+        </div>
+        <div id="talk_controls" hidden>
+          <p class="caption">Say something first. The token means nothing until agents make it mean something.</p>
+          <div class="buttons" id="talk_buttons"></div>
+        </div>
+      </div>
+
+      <div class="moves" id="moves"></div>
+      <div class="outcome" id="outcome" hidden>
+        <div class="headline" id="outcome_headline"></div>
+        <div class="secondary" id="outcome_detail"></div>
+        <details><summary class="caption">Env transcript</summary><pre id="outcome_transcript"></pre></details>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="card">
+      <h2>Its network, this move</h2>
+      <p class="caption" id="net_caption">Every number here is a forward pass on the observation in front of it.</p>
+      <div id="net"></div>
+    </div>
+    <div class="card" id="language_card">
+      <h2>Debate in English</h2>
+      <p class="caption" id="language_status"></p>
+    </div>
+  </section>
+</main>
+<script src="/play.js"></script>
+</body>
+</html>

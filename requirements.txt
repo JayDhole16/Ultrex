@@ -1,0 +1,7 @@
+numpy>=1.24
+gymnasium>=1.0
+pettingzoo>=1.24
+torch>=2.3  # first release built against NumPy 2
+matplotlib>=3.7  # self_play.py plots
+pytest>=7  # optional: `pytest negotiation_env.py`
+transformers>=4.40  # optional: the English seat in play.py; downloads a ~1 GB model on first use

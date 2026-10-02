@@ -1,0 +1,42 @@
+{
+  "alternating_offers": {
+    "sampled": {
+      "reward_agent_0": 61.539558984978214,
+      "reward_agent_1": 57.9933247148978,
+      "agreement_rate": 0.998,
+      "disagreement_rate": 0.002,
+      "timeout_rate": 0.0,
+      "rounds_to_agreement": 2.1442885771543088,
+      "gini": 0.3252905811623246
+    },
+    "greedy": {
+      "reward_agent_0": 61.50084491146734,
+      "reward_agent_1": 58.84571741484819,
+      "agreement_rate": 1.0,
+      "disagreement_rate": 0.0,
+      "timeout_rate": 0.0,
+      "rounds_to_agreement": 2.0,
+      "gini": 0.3399999999999999
+    }
+  },
+  "sealed_bid": {
+    "sampled": {
+      "reward_agent_0": 42.13360007921666,
+      "reward_agent_1": 39.64712413123832,
+      "agreement_rate": 0.988,
+      "disagreement_rate": 0.012,
+      "timeout_rate": 0.0,
+      "rounds_to_agreement": 1.0,
+      "gini": 0.09310969820736521
+    },
+    "greedy": {
+      "reward_agent_0": 42.24660230382625,
+      "reward_agent_1": 41.3987254763469,
+      "agreement_rate": 1.0,
+      "disagreement_rate": 0.0,
+      "timeout_rate": 0.0,
+      "rounds_to_agreement": 1.0,
+      "gini": 0.0024776119402985072
+    }
+  }
+}
