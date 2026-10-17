@@ -230,4 +230,5 @@ Each run writes to `runs/<run_id>/`: `metrics.csv` (per update), `episodes.csv` 
 (weights and config), `eval.json`, `plots.png`. The economy also writes `events.jsonl` (one JSON line per
 generation, including a full sampled negotiation), `live.jsonl` (the move-by-move stream from `livelog.py`)
 and `checkpoints/` every 25 generations. The dashboard only ever reads those files; it cannot write to a run or
-influence training.
+influence training.   #   U l t r e x  
+ 
